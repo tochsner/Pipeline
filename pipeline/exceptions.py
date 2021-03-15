@@ -1,0 +1,2 @@
+class IteratedThroughAll(Exception):
+    pass
