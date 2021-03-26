@@ -4,11 +4,11 @@
 
 This project contains the implementation of an ultra-flexible pipeline for pre-processing. It can be used for any data science or machine learning project. However, it is specifically designed to work with the generator interface of tensorflow-keras.
 
-Any pipeline can be represented by a directed acyclic graph. Each node corresponds to an operation and can have multiple input streams and output streams. The data-flow-principle is used: Each one of the source nodes output one new data point at each time step. This data then flows in parallel through the pipeline.
+Any pipeline can be represented by a directed acyclic graph. Each node corresponds to an operation and can have multiple input streams and output streams. The data-flow-principle is used: the output node request data from its input nodes, they request data from their inputs, and so on.
 
 ## Simple Example
 
-Every pipeline has at least one data source: the node at the root of the tree. It can be defined by inherting the FirstPipelineStep class:
+Every pipeline has at least one data source: the node at the root of the tree. It can be defined by inheriting from the FirstPipelineStep class:
 
 ```python
 class IntegerStream(FirstPipelineStep):
@@ -45,8 +45,10 @@ class Adder(FunctionTransformer):
 # here, we have to apply from PipelineStep since we discard all odd elements
 class FilterEven(PipelineStep):
     def get_next(self, previous: Generator, **arguments) -> Generator:
-        inputs = next(previous)     # previous is a generator yielding a list from every incoming input per input stream
+        # previous is a generator yielding a list from every incoming input per input stream
+        inputs = next(previous)
         
+        # we only yield if all inputs are even
         while not all([i % 2 for i in inputs]):
             inputs = next(previous)
 
@@ -62,33 +64,30 @@ for e in generator:
     print(e)
 ```
 
-There are many predefined pipeline steps. A more realistic pipeline for image processing is the following, where we generate data for an autoencoder which reconstructs an image where a random block is cropped out:
+There are many predefined pipeline steps and many useful features. A more realistic pipeline for image processing is the following, where we generate data for an autoencoder which reconstructs an image where a random block is cropped out:
 
 ```python
-# SimpleMRIGenerator has two outputs streams: one with the an mri image and one with a metadata dict
+# SimpleMRIGenerator has one outputs stream yielding the mri image
 generator = SimpleMRIGenerator(n_bins=n_bins, data_loader=load_data)()
-
-# we can also specify the specific output streams to use
-image = Identity()(generator, 0)
-metadata = Identity()(generator, 1)
-
-# extracts the value for a specific key 
-patient_position = DictToValue(key='orientation')(metadata)
 
 image_steps = Block([
     Rescale(),
     Resize()
-])(image)
+])(generator)
 
+# DuplicateStream turns every input stream into two output streams
 duplicated = DuplicateStream()(image_steps)
-    
+
 # hide a random block of the input image
-x = HideRandomBlock()(duplicated, 0)
+x = HideRandomBlock()(duplicated, 0) # we only use the first output stream of duplicated
 # as this is an autoencoder, we use the full image as target output
 y = Identity()(duplicated, 1)
 
 # KerasTrainingGenerator transforms the data so that it can be directly used with a keras model
 train_output = KerasTrainingGenerator()([x, y])
+
+# get_view allows us to create multiple views of the same pipeline with different arguments passed 
+# to the steps. Here, bins_included is passed to the generator and allows us to do a train-test split
 train_pipeline = train_output.get_view(bins_included=list(range(n_bins - 1)), **parameters)
 
 test_output = KerasTestGenerator()([x, y])
