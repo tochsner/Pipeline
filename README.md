@@ -30,7 +30,7 @@ pipeline = Block([
     IntegerStream(),
     Adder(),
     FilterEven()    
-])
+])()
 ```
 
 In this example, `Adder` and `FilterEven` can be defined as follows:
@@ -108,10 +108,14 @@ history = model.fit(x=train_pipeline,
 
 The conda environment in conda_env.yml is used. To load all packages in conda_env.yml into your current local environment run:
 
-'conda env export > conda_env.yml'
-'pip install -r requirements.txt'
+```
+conda env export > conda_env.yml
+pip install -r requirements.txt
+```
 
 To update conda_env.yml to contain the same packages as your current local environment run:
 
-'conda env update --file conda_env.yml  --prune'
-'pip freeze > requirements.txt'
+```
+conda env update --file conda_env.yml  --prune
+pip freeze > requirements.txt
+```
